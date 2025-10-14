@@ -49,3 +49,4 @@ jobs:
             cycr.io/clysec/doh-server:latest
           file: ./Dockerfile
           platforms: linux/amd64,linux/arm64
+ 
