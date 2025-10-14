@@ -8,6 +8,41 @@ A fast and secure DoH (DNS-over-HTTPS) and ODoH (Oblivious DoH) server.
 
 `doh-proxy` is written in Rust, and has been battle-tested in production since February 2018. It doesn't do DNS resolution on its own, but can sit in front of any DNS resolver in order to augment it with DoH support.
 
+
+## Docker Image
+### Environment Variables
+The environment variables correspond to the CLI arguments with the DOHS_ prefix, uppercase and dashes (-) replaced by underscores (_).
+
+Example (with default values):
+
+```
+DOHS_ALLOW_ODOH_POST
+DOHS_DISABLE_KEEPALIVE
+DOHS_DISABLE_POST
+
+DOHS_ERR_TTL=2
+DOHS_HOSTNAME
+DOHS_LISTEN_ADDRESS=127.0.0.1:3000
+DOHS_LOCAL_BIND_ADDRESS
+DOHS_MAX_CLIENTS=512
+DOHS_MAX_CONCURRENT=16
+DOHS_MAX_TTL=604800
+DOHS_MIN_TTL=10
+DOHS_PATH=/dns-query
+DOHS_PUBLIC_ADDRESS
+DOHS_PUBLIC_PORT=443
+DOHS_SERVER_ADDRESS=9.9.9.9:53
+DOHS_TIMEOUT=10
+DOHS_TLS_CERT_KEY_PATH=/app/localhost.pem
+DOHS_TLS_CERT_PATH=/app/localhost.pem
+DOHS_ENABLE_ECS
+DOHS_ECS_PREFIX_V4=24
+DOHS_ECS_PREFIX_V6=56
+```
+
+
+
+
 ## Table of Contents
 
 - [](#)

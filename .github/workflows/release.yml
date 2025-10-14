@@ -2,102 +2,50 @@ name: Release
 
 on:
   push:
-    tags:
-      - "*"
+    branches:
+      - master
 
 jobs:
   build:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Get the version
-        id: get_version
-        run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
-
       - uses: actions/checkout@v5
 
-      - uses: mlugg/setup-zig@v2
+      - name: Setup QEMU
+        uses: docker/setup-qemu-action@v2
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v2
         with:
-          version: 0.15.1
+          username: ${{ secrets.DOCKERHUB_USER }}
+          password: ${{ secrets.DOCKERHUB_KEY }}
 
-      - uses: hecrj/setup-rust-action@v2
+      - name: Login to cycr
+        uses: docker/login-action@v2
         with:
-          rust-version: stable
-
-      - name: Check Cargo availability
-        run: cargo --version
-
-      - name: Check Rustup default toolchain
-        run: rustup default | grep stable
-
-      - name: Install cargo-deb
-        run: cargo install cargo-deb
-
-      - name: Install cargo-generate-rpm
-        run: cargo install cargo-generate-rpm
-
-      - name: Install cargo-zigbuild
-        run: cargo install cargo-zigbuild
-
-      - name: Install mingw-w64 tools (dlltool)
-        run: sudo apt-get update && sudo apt-get install -y mingw-w64
-
-      - name: Release build Linux-x86-64
-        run: |
-          rustup target add x86_64-unknown-linux-musl
-          env RUSTFLAGS="-C strip=symbols" CFLAGS="-Wno-date-time" cargo zigbuild --release --target x86_64-unknown-linux-musl
-          mkdir doh-proxy
-          mv target/x86_64-unknown-linux-musl/release/doh-proxy doh-proxy/
-          cp README.md localhost.pem doh-proxy/
-          tar cjpf doh-proxy_${{ steps.get_version.outputs.VERSION }}_linux-x86_64.tar.bz2 doh-proxy
-          rm -fr doh-proxy
-
-      - name: Release build Linux-aarch64
-        run: |
-          rustup target add aarch64-unknown-linux-musl
-          env RUSTFLAGS="-C strip=symbols" CFLAGS="-Wno-date-time" cargo zigbuild --release --target aarch64-unknown-linux-musl
-          mkdir doh-proxy
-          mv target/aarch64-unknown-linux-musl/release/doh-proxy doh-proxy/
-          cp README.md localhost.pem doh-proxy/
-          tar cjpf doh-proxy_${{ steps.get_version.outputs.VERSION }}_linux-aarch64.tar.bz2 doh-proxy
-          rm -fr doh-proxy
-
-      - name: Release build Windows-x86_64
-        run: |
-          rustup target add x86_64-pc-windows-gnu
-          env RUSTFLAGS="-C strip=symbols" CFLAGS="-Wno-date-time" cargo zigbuild --release --target x86_64-pc-windows-gnu
-          mkdir doh-proxy
-          mv target/x86_64-pc-windows-gnu/release/doh-proxy.exe doh-proxy/
-          cp README.md localhost.pem doh-proxy/
-          zip -9 -r doh-proxy_${{ steps.get_version.outputs.VERSION }}_windows-x86_64.zip doh-proxy
-          rm -fr doh-proxy
-
-      - name: Debian packages
-        run: |
-          rustup target add x86_64-unknown-linux-musl
-          env RUSTFLAGS="-C strip=symbols" CFLAGS="-Wno-date-time" cargo deb --no-strip --cargo-build=zigbuild --target=x86_64-unknown-linux-musl
-          rustup target add aarch64-unknown-linux-musl
-          env RUSTFLAGS="-C strip=symbols" CFLAGS="-Wno-date-time" cargo deb --no-strip --cargo-build=zigbuild --target=aarch64-unknown-linux-musl
-
-      - name: RPM packages
-        run: |
-          rustup target add x86_64-unknown-linux-gnu
-          env RUSTFLAGS="-C strip=symbols" CFLAGS="-Wno-date-time" cargo-zigbuild build --target=x86_64-unknown-linux-gnu.2.17 --release
-          mv target/x86_64-unknown-linux-musl/release/doh-proxy target/release/
-          cargo generate-rpm --target x86_64-unknown-linux-gnu
-          rustup target add aarch64-unknown-linux-gnu
-          env RUSTFLAGS="-C strip=symbols" CFLAGS="-Wno-date-time" cargo-zigbuild build --target=aarch64-unknown-linux-gnu.2.17 --release
-          cargo generate-rpm --target aarch64-unknown-linux-gnu
-
-      - name: Create release and upload assets
-        uses: softprops/action-gh-release@v2
+          registry: cycr.io
+          username: ${{ secrets.CYCR_USER }}
+          password: ${{ secrets.CYCR_KEY }}
+      
+      - name: Login to ghcr
+        uses: docker/login-action@v2
         with:
-          draft: true
-          files: |
-            target/debian/doh-proxy_${{ steps.get_version.outputs.VERSION }}-1_amd64.deb
-            target/debian/doh-proxy_${{ steps.get_version.outputs.VERSION }}-1_arm64.deb
-            target/x86_64-unknown-linux-gnu/generate-rpm/doh-proxy-${{ steps.get_version.outputs.VERSION }}-1.x86_64.rpm
-            target/aarch64-unknown-linux-gnu/generate-rpm/doh-proxy-${{ steps.get_version.outputs.VERSION }}-1.aarch64.rpm
-            doh-proxy_${{ steps.get_version.outputs.VERSION }}_linux-x86_64.tar.bz2
-            doh-proxy_${{ steps.get_version.outputs.VERSION }}_linux-aarch64.tar.bz2
-            doh-proxy_${{ steps.get_version.outputs.VERSION }}_windows-x86_64.zip
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push Docker image to Docker Hub
+        uses: depot/build-push-action@v1
+        with:
+          context: .
+          push: true
+          tags: |
+            docker.io/clysec/doh-server:latest
+            ghcr.io/clysec/doh-server:latest
+            cycr.io/clysec/doh-server:latest
+          file: ./Dockerfile
+          platforms: linux/amd64,linux/arm64
