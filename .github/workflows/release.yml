@@ -42,7 +42,7 @@ jobs:
       - name: Build and push Docker image to Docker Hub
         uses: depot/build-push-action@v1
         with:
-          auth: a
+          project: ${{ secrets.DEPOT_PROJECT }}
           context: .
           push: true
           tags: |
